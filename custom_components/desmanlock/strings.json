@@ -66,7 +66,9 @@
           "open_time": {"name": "Last unlock time"},
           "lock_mac": {"name": "Lock MAC"},
           "last_unlock_at": {"name": "Last unlock command time"},
-          "unlock_hold_seconds": {"name": "Unlock state hold"}
+          "unlock_hold_seconds": {"name": "Unlock state hold"},
+          "state_expires_at": {"name": "State valid until"},
+          "state_is_inferred": {"name": "State is inferred"}
         }
       }
     },

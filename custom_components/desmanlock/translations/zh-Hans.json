@@ -66,7 +66,9 @@
           "open_time": {"name": "最近开门时间"},
           "lock_mac": {"name": "门锁 MAC"},
           "last_unlock_at": {"name": "最近开锁指令时间"},
-          "unlock_hold_seconds": {"name": "解锁状态保持时长"}
+          "unlock_hold_seconds": {"name": "解锁状态保持时长"},
+          "state_expires_at": {"name": "本次状态有效期至"},
+          "state_is_inferred": {"name": "状态为推断值"}
         }
       }
     },

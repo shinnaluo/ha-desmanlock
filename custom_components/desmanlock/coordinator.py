@@ -23,7 +23,12 @@ from .const import (
     LOG_TYPE_OPEN_DOOR,
 )
 from .exceptions import DesmanLockAuthError
-from .helpers import resolve_lock_state
+from .helpers import (
+    AUTO_LOCK_TEXT,
+    latest_open_time_record,
+    parse_log_datetime,
+    resolve_lock_state,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,6 +57,7 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.unlock_hold_seconds = max(0, int(unlock_hold_seconds))
         self.last_unlock_at: datetime | None = None
         self._unlock_hold_cancel: Callable[[], None] | None = None
+        self._log_hold_cancel: Callable[[], None] | None = None
 
     @property
     def lock_state(self) -> tuple[bool | None, str]:
@@ -68,6 +74,7 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.last_unlock_at,
             self.unlock_hold_seconds,
             dt_util.utcnow(),
+            local_now=dt_util.now().replace(tzinfo=None),
         )
 
     def mark_unlocked(self) -> None:
@@ -98,6 +105,54 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self._unlock_hold_cancel is not None:
             self._unlock_hold_cancel()
             self._unlock_hold_cancel = None
+
+    def _schedule_log_hold_expiry(self, records: list[dict] | None) -> None:
+        """Refresh listeners when a cloud unlock event leaves its hold window.
+
+        The coordinator only polls the cloud every few minutes, so without this
+        timer the entity would keep showing "unlocked" long after the lock has
+        auto-locked itself.
+        """
+        self.cancel_log_hold()
+        if self.unlock_hold_seconds <= 0:
+            return
+        record = latest_open_time_record(records)
+        if not record:
+            return
+        if (
+            record.get("logType") == AUTO_LOCK_TEXT
+            or record.get("content") == AUTO_LOCK_TEXT
+        ):
+            return
+        logged_at = parse_log_datetime(record.get("datetime"))
+        if logged_at is None:
+            return
+        elapsed = (
+            dt_util.now().replace(tzinfo=None) - logged_at
+        ).total_seconds()
+        # A log timestamp far in the future means the HA timezone does not
+        # match the lock's; time-based inference is disabled in that case.
+        if elapsed < -300:
+            return
+        remaining = self.unlock_hold_seconds - elapsed
+        if remaining <= 0:
+            return
+        self._log_hold_cancel = async_call_later(
+            self.hass, remaining, self._handle_log_hold_expired
+        )
+
+    @callback
+    def _handle_log_hold_expired(self, _now: datetime) -> None:
+        """Refresh listeners after a cloud unlock event has expired."""
+        self._log_hold_cancel = None
+        self.async_update_listeners()
+
+    @callback
+    def cancel_log_hold(self) -> None:
+        """Cancel a pending cloud-log hold timer."""
+        if self._log_hold_cancel is not None:
+            self._log_hold_cancel()
+            self._log_hold_cancel = None
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch latest data from DSM cloud."""
@@ -172,7 +227,7 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 alarm_records, LOG_TYPE_ALARM
             ) or previous_data.get("last_alarm_snapshot") or {}
             self.bluetooth.update_data(selected_lock, detail, detail_config)
-            return {
+            result = {
                 "locks": locks,
                 "lock": selected_lock,
                 "lock_id": lock_id,
@@ -187,6 +242,8 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "last_action": last_action,
                 "last_alarm_snapshot": last_alarm_snapshot,
             }
+            self._schedule_log_hold_expiry(open_records)
+            return result
         except DesmanLockAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except DesmanLockApiError as err:

@@ -150,6 +150,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) 
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         entry.runtime_data.cancel_unlock_hold()
+        entry.runtime_data.cancel_log_hold()
         await entry.runtime_data.bluetooth.async_close()
         if not any(
             other.state is ConfigEntryState.LOADED
