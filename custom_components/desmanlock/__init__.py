@@ -21,8 +21,10 @@ from .const import (
     CONF_LOCK_ID,
     CONF_PHONE,
     CONF_REGION_ID,
+    CONF_UNLOCK_HOLD_SECONDS,
     DEFAULT_REGION_ID,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_UNLOCK_HOLD_SECONDS,
     DOMAIN,
     PLATFORMS,
     SERVICE_ADD_DIGIT_PASSWORD,
@@ -69,6 +71,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) -
         api,
         lock_id,
         int(config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)),
+        int(config.get(CONF_UNLOCK_HOLD_SECONDS, DEFAULT_UNLOCK_HOLD_SECONDS)),
     )
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
@@ -79,11 +82,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) -
 async def async_migrate_entry(
     hass: HomeAssistant, entry: DesmanLockConfigEntry
 ) -> bool:
-    """Migrate registered entities to their explicit entity IDs."""
-    if entry.version > 2:
+    """Migrate entity IDs and drop the obsolete lock entity."""
+    version = entry.version
+    if version > 3:
         return False
 
-    if entry.version == 1:
+    if version == 1:
         registry = er.async_get(hass)
         unique_id_prefix = f"{DOMAIN}_{entry.data[CONF_LOCK_ID]}_"
         for registry_entry in er.async_entries_for_config_entry(
@@ -112,7 +116,31 @@ async def async_migrate_entry(
                 registry_entry.entity_id, new_entity_id=new_entity_id
             )
 
-        hass.config_entries.async_update_entry(entry, version=2)
+        version = 2
+        hass.config_entries.async_update_entry(entry, version=version)
+
+    if version == 2:
+        # The lock platform was replaced by an unlock button plus a lock-state
+        # binary sensor. Remove the stale registry entry so it does not linger
+        # as an unavailable entity in Home Assistant.
+        registry = er.async_get(hass)
+        obsolete_unique_id = f"{DOMAIN}_{entry.data[CONF_LOCK_ID]}_lock"
+        for registry_entry in er.async_entries_for_config_entry(
+            registry, entry.entry_id
+        ):
+            if (
+                registry_entry.platform == DOMAIN
+                and registry_entry.domain == "lock"
+                and registry_entry.unique_id == obsolete_unique_id
+            ):
+                _LOGGER.info(
+                    "Removing obsolete Desman lock entity %s (replaced by a button)",
+                    registry_entry.entity_id,
+                )
+                registry.async_remove(registry_entry.entity_id)
+
+        version = 3
+        hass.config_entries.async_update_entry(entry, version=version)
 
     return True
 
@@ -121,6 +149,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: DesmanLockConfigEntry) 
     """Unload a Desman Lock config entry."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
+        entry.runtime_data.cancel_unlock_hold()
         await entry.runtime_data.bluetooth.async_close()
         if not any(
             other.state is ConfigEntryState.LOADED

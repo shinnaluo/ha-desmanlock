@@ -3,22 +3,27 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from collections.abc import Callable
+from datetime import datetime, timedelta
 from typing import Any
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import DesmanLockApiClient, DesmanLockApiError
 from .bluetooth import DesmanBluetoothLock
 from .const import (
+    DEFAULT_UNLOCK_HOLD_SECONDS,
     DOMAIN,
     LOG_TYPE_ACTION,
     LOG_TYPE_ALARM,
     LOG_TYPE_OPEN_DOOR,
 )
 from .exceptions import DesmanLockAuthError
+from .helpers import resolve_lock_state
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,6 +37,7 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         api: DesmanLockApiClient,
         lock_id: str,
         scan_interval: int,
+        unlock_hold_seconds: int = DEFAULT_UNLOCK_HOLD_SECONDS,
     ) -> None:
         """Initialize coordinator."""
         super().__init__(
@@ -43,6 +49,55 @@ class DesmanLockDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.api = api
         self.lock_id = lock_id
         self.bluetooth = DesmanBluetoothLock(hass, api, {}, {}, {})
+        self.unlock_hold_seconds = max(0, int(unlock_hold_seconds))
+        self.last_unlock_at: datetime | None = None
+        self._unlock_hold_cancel: Callable[[], None] | None = None
+
+    @property
+    def lock_state(self) -> tuple[bool | None, str]:
+        """Return (is_locked, source) for the lock state binary sensor.
+
+        The cloud has no real-time bolt state, so the newest open-door /
+        auto-lock log entry is the only authoritative source. A successful
+        Bluetooth unlock is reflected immediately for ``unlock_hold_seconds``;
+        afterwards the lock is assumed to have auto-locked unless the cloud
+        already reports otherwise.
+        """
+        return resolve_lock_state(
+            self.data.get("records") if self.data else None,
+            self.last_unlock_at,
+            self.unlock_hold_seconds,
+            dt_util.utcnow(),
+        )
+
+    def mark_unlocked(self) -> None:
+        """Record a successful unlock and refresh state listeners immediately."""
+        self.last_unlock_at = dt_util.utcnow()
+        self.async_update_listeners()
+        self._schedule_hold_expiry()
+
+    @callback
+    def _schedule_hold_expiry(self) -> None:
+        """Re-evaluate the optimistic state when the hold window expires."""
+        self.cancel_unlock_hold()
+        if self.unlock_hold_seconds <= 0 or self.last_unlock_at is None:
+            return
+        self._unlock_hold_cancel = async_call_later(
+            self.hass, self.unlock_hold_seconds, self._handle_hold_expired
+        )
+
+    @callback
+    def _handle_hold_expired(self, _now: datetime) -> None:
+        """Refresh listeners after the optimistic unlock window."""
+        self._unlock_hold_cancel = None
+        self.async_update_listeners()
+
+    @callback
+    def cancel_unlock_hold(self) -> None:
+        """Cancel a pending optimistic-state timer."""
+        if self._unlock_hold_cancel is not None:
+            self._unlock_hold_cancel()
+            self._unlock_hold_cancel = None
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch latest data from DSM cloud."""

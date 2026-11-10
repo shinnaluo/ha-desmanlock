@@ -21,8 +21,10 @@ from .const import (
     CONF_LOCK_ID,
     CONF_PHONE,
     CONF_REGION_ID,
+    CONF_UNLOCK_HOLD_SECONDS,
     DEFAULT_REGION_ID,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_UNLOCK_HOLD_SECONDS,
     DOMAIN,
 )
 
@@ -30,7 +32,7 @@ from .const import (
 class DesmanLockConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Desman Lock."""
 
-    VERSION = 2
+    VERSION = 3
 
     def __init__(self) -> None:
         """Initialize config flow."""
@@ -45,6 +47,11 @@ class DesmanLockConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             user_input[CONF_SCAN_INTERVAL] = int(
                 user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+            )
+            user_input[CONF_UNLOCK_HOLD_SECONDS] = int(
+                user_input.get(
+                    CONF_UNLOCK_HOLD_SECONDS, DEFAULT_UNLOCK_HOLD_SECONDS
+                )
             )
             api = DesmanLockApiClient(
                 phone=user_input[CONF_PHONE],
@@ -144,6 +151,11 @@ class DesmanLockOptionsFlow(OptionsFlowWithReload):
             user_input[CONF_SCAN_INTERVAL] = int(
                 user_input.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
             )
+            user_input[CONF_UNLOCK_HOLD_SECONDS] = int(
+                user_input.get(
+                    CONF_UNLOCK_HOLD_SECONDS, DEFAULT_UNLOCK_HOLD_SECONDS
+                )
+            )
             if user_input[CONF_PASSWORD] != current_config[CONF_PASSWORD]:
                 api = DesmanLockApiClient(
                     phone=current_config[CONF_PHONE],
@@ -180,6 +192,11 @@ def _scan_interval_validator() -> vol.All:
     return vol.All(vol.Coerce(int), vol.Range(min=1))
 
 
+def _unlock_hold_validator() -> vol.All:
+    """Return unlock hold duration validator (0 disables optimistic state)."""
+    return vol.All(vol.Coerce(int), vol.Range(min=0, max=600))
+
+
 def _user_schema(user_input: dict[str, Any] | None = None) -> vol.Schema:
     """Return user step schema."""
     defaults = user_input or {}
@@ -200,6 +217,12 @@ def _user_schema(user_input: dict[str, Any] | None = None) -> vol.Schema:
                 CONF_SCAN_INTERVAL,
                 default=defaults.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
             ): _scan_interval_validator(),
+            vol.Optional(
+                CONF_UNLOCK_HOLD_SECONDS,
+                default=defaults.get(
+                    CONF_UNLOCK_HOLD_SECONDS, DEFAULT_UNLOCK_HOLD_SECONDS
+                ),
+            ): _unlock_hold_validator(),
         }
     )
 
@@ -216,5 +239,11 @@ def _options_schema(config: dict[str, Any]) -> vol.Schema:
                 CONF_SCAN_INTERVAL,
                 default=config.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
             ): _scan_interval_validator(),
+            vol.Optional(
+                CONF_UNLOCK_HOLD_SECONDS,
+                default=config.get(
+                    CONF_UNLOCK_HOLD_SECONDS, DEFAULT_UNLOCK_HOLD_SECONDS
+                ),
+            ): _unlock_hold_validator(),
         }
     )

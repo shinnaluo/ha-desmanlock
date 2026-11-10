@@ -8,7 +8,8 @@
           "phone": "手机号",
           "password": "密码",
           "region_id": "区域 ID",
-          "scan_interval": "扫描间隔（秒）"
+          "scan_interval": "扫描间隔（秒）",
+          "unlock_hold_seconds": "解锁状态保持时间（秒）"
         }
       },
       "lock": {
@@ -33,7 +34,8 @@
         "title": "德施曼智能锁选项",
         "data": {
           "password": "密码",
-          "scan_interval": "扫描间隔（秒）"
+          "scan_interval": "扫描间隔（秒）",
+          "unlock_hold_seconds": "解锁状态保持时间（秒）"
         }
       }
     },
@@ -52,24 +54,24 @@
         }
       }
     },
-    "lock": {
-      "lock": {
+    "binary_sensor": {
+      "lock_state": {
+        "name": "门锁状态",
         "state_attributes": {
-          "lock_id": {"name": "门锁 ID"},
-          "lock_mac": {"name": "门锁 MAC"},
-          "lock_type": {"name": "门锁类型"},
+          "lock_state": {"name": "状态"},
+          "state_source": {"name": "状态来源"},
           "open_user": {"name": "最近开门用户"},
           "open_content": {"name": "最近开门内容"},
           "open_log_type": {"name": "最近开门方式"},
           "open_time": {"name": "最近开门时间"},
-          "battery_update_time": {"name": "电池更新时间"},
-          "battery_status": {"name": "电池状态"},
-          "cateye_battery": {"name": "猫眼电量"},
-          "wifi_state": {"name": "Wi-Fi 状态"},
-          "network_signal": {"name": "网络信号"},
-          "iot_id": {"name": "IoT ID"}
+          "lock_mac": {"name": "门锁 MAC"},
+          "last_unlock_at": {"name": "最近开锁指令时间"},
+          "unlock_hold_seconds": {"name": "解锁状态保持时长"}
         }
       }
+    },
+    "button": {
+      "unlock": {"name": "解锁"}
     },
     "sensor": {
       "battery_percentage": {"name": "大电池电量"},

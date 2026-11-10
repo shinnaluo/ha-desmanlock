@@ -8,7 +8,8 @@
           "phone": "Phone number",
           "password": "Password",
           "region_id": "Region ID",
-          "scan_interval": "Scan interval (seconds)"
+          "scan_interval": "Scan interval (seconds)",
+          "unlock_hold_seconds": "Unlock state hold (seconds)"
         }
       },
       "lock": {
@@ -33,7 +34,8 @@
         "title": "Desman Lock options",
         "data": {
           "password": "Password",
-          "scan_interval": "Scan interval (seconds)"
+          "scan_interval": "Scan interval (seconds)",
+          "unlock_hold_seconds": "Unlock state hold (seconds)"
         }
       }
     },
@@ -52,24 +54,24 @@
         }
       }
     },
-    "lock": {
-      "lock": {
+    "binary_sensor": {
+      "lock_state": {
+        "name": "Lock state",
         "state_attributes": {
-          "lock_id": {"name": "Lock ID"},
-          "lock_mac": {"name": "Lock MAC"},
-          "lock_type": {"name": "Lock type"},
+          "lock_state": {"name": "State"},
+          "state_source": {"name": "State source"},
           "open_user": {"name": "Last unlock user"},
           "open_content": {"name": "Last unlock content"},
           "open_log_type": {"name": "Last unlock method"},
           "open_time": {"name": "Last unlock time"},
-          "battery_update_time": {"name": "Battery update time"},
-          "battery_status": {"name": "Battery status"},
-          "cateye_battery": {"name": "Peephole camera battery"},
-          "wifi_state": {"name": "Wi-Fi status"},
-          "network_signal": {"name": "Network signal"},
-          "iot_id": {"name": "IoT ID"}
+          "lock_mac": {"name": "Lock MAC"},
+          "last_unlock_at": {"name": "Last unlock command time"},
+          "unlock_hold_seconds": {"name": "Unlock state hold"}
         }
       }
+    },
+    "button": {
+      "unlock": {"name": "Unlock"}
     },
     "sensor": {
       "battery_percentage": {"name": "Large battery level"},

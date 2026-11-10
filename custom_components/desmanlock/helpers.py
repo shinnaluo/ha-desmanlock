@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from .const import LOG_TYPE_OPEN_DOOR
@@ -70,3 +71,41 @@ def _record_with_datetime(
     if user is not None:
         result["user"] = user
     return result
+
+
+def cloud_lock_state(records: list[dict] | None) -> bool | None:
+    """Infer the lock state from the newest open-door record.
+
+    Return True when locked, False when unlocked, and None when the cloud has
+    not reported any usable record yet. This is the same inference the former
+    lock entity used, kept here so the state sensor and the cloud stay in sync.
+    """
+    record = latest_open_time_record(records)
+    log_type = record.get("logType")
+    content = record.get("content")
+    if log_type == AUTO_LOCK_TEXT or content == AUTO_LOCK_TEXT:
+        return True
+    if log_type or content:
+        return False
+    return None
+
+
+def resolve_lock_state(
+    records: list[dict] | None,
+    last_unlock_at: datetime | None,
+    unlock_hold_seconds: int,
+    now: datetime,
+) -> tuple[bool | None, str]:
+    """Resolve (is_locked, source) from cloud records and a local unlock.
+
+    Pure function so the state inference can be tested without Home Assistant.
+    ``unlock_hold_seconds <= 0`` disables the optimistic window entirely.
+    """
+    cloud = cloud_lock_state(records)
+    if last_unlock_at is not None and unlock_hold_seconds > 0:
+        elapsed = (now - last_unlock_at).total_seconds()
+        if elapsed < unlock_hold_seconds:
+            return False, "unlock_in_progress"
+        if cloud is False:
+            return True, "auto_lock_timeout"
+    return cloud, "cloud_record"

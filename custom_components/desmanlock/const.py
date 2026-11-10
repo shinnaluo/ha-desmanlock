@@ -14,7 +14,14 @@ DEFAULT_SCAN_INTERVAL = 300
 # camera.py is intentionally not registered until the LinkVisual media pipeline
 # can run entirely inside the integration. This also prevents preview requests
 # from waking the peephole camera or creating cloud stream sessions.
-PLATFORMS = ["image", "lock", "sensor"]
+PLATFORMS = ["binary_sensor", "button", "image", "sensor"]
+
+# The cloud exposes no real-time bolt/door state. A successful unlock is shown
+# immediately and is assumed to auto-lock again after this many seconds unless
+# the cloud has already reported an "auto lock" record. Set to 0 to rely on
+# cloud records only.
+CONF_UNLOCK_HOLD_SECONDS = "unlock_hold_seconds"
+DEFAULT_UNLOCK_HOLD_SECONDS = 30
 
 BASE_URL = "https://nyuwa.dsmxp.com"
 APP_VERSION = "6.14.0"
