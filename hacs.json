@@ -1,6 +1,4 @@
 {
   "name": "Desman Lock",
-  "render_readme": true,
-  "zip_release": true,
-  "filename": "desmanlock.zip"
+  "render_readme": true
 }
