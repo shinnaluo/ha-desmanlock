@@ -59,10 +59,10 @@ state: "on"
 > [!IMPORTANT]
 > 如果之前在 HACS 里添加的是上游 `chliny/ha-desmanlock`，请先到 **HACS → 右上角菜单 → 自定义存储库** 删除该条目，再重新添加 `https://github.com/shinnaluo/ha-desmanlock`（类别选「集成」）。否则 HACS 会继续去上游检查更新，把旧的 `lock` 实体装回来。
 
-本仓库的 `hacs.json` 不再依赖 Release 附件，HACS 直接读取仓库中的 `custom_components/desmanlock` 内容；同时保留自动发版工作流用于版本标记：推送到 `master` 或 `v*` 标签时，GitHub Actions 会按 `manifest.json` 的版本号创建对应 Release（已存在则跳过），也可在 **Actions → Release** 手动运行。
+本仓库的 `hacs.json` 不再依赖 Release 附件，HACS 直接读取仓库中的 `custom_components/desmanlock` 内容，版本与更新提示均以本仓库为准。仓库自带的 Release 工作流会在推送 `v*` 标签时打包组件并创建 Release，也可在 GitHub 网页手动发布；当前 `v0.3.0` 已发布。
 
 > [!NOTE]
-> GitHub 对 Fork 仓库默认可能禁用 Actions。若仓库迟迟没有 Release，请到 **Actions** 页面点击启用一次，然后手动运行一次 Release 工作流。
+> GitHub 对 Fork 仓库默认可能禁用 Actions。若打标签后没有自动生成 Release，到 **Actions** 页面启用一次即可；HACS 的更新检测本身不依赖该工作流。
 
 ## 安装
 
