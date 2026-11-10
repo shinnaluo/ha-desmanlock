@@ -24,7 +24,11 @@ from .const import (
     DEFAULT_REGION_ID,
     USER_AGENT,
 )
-from .exceptions import DesmanLockApiError, DesmanLockAuthError
+from .exceptions import (
+    DesmanLockApiError,
+    DesmanLockAuthError,
+    DesmanLockResponseError,
+)
 
 REQUEST_TIMEOUT = 25
 
@@ -94,6 +98,7 @@ class DesmanLockApiClient:
         params: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         auth: bool = True,
+        login: bool = False,
     ) -> Any:
         url = f"{BASE_URL}{path}"
         try:
@@ -137,13 +142,24 @@ class DesmanLockApiClient:
             )
             return result
 
+        # The login endpoint reports business errors through `status`, not
+        # `code`, e.g. {"status": 4, "msg": "密码错误", "success": false}.
+        # Reading only `code` made every credential rejection indistinguishable
+        # from a network failure, so the config flow showed "无法连接或登录失败".
         message = payload.get("msg") or payload.get("message") or "Desman Lock API error"
-        code = str(payload.get("code", ""))
-        _LOGGER.debug("Desman API failed: path=%s code=%s message=%s", path, code, message)
-        if _is_auth_error(code, message):
+        code = str(payload.get("code") or payload.get("status") or "")
+        _LOGGER.warning(
+            "Desman API rejected request: path=%s code=%s message=%s",
+            path,
+            code,
+            message,
+        )
+        if login or _is_auth_error(code, message):
+            # Any well-formed rejection on the login endpoint means the cloud
+            # did not accept the phone/password/region combination.
             self.token = None
             raise DesmanLockAuthError(message)
-        raise DesmanLockApiError(message)
+        raise DesmanLockResponseError(message, code=code)
 
     def login(self) -> str:
         """Log in and return an access token."""
@@ -158,6 +174,7 @@ class DesmanLockApiClient:
                 "regionCode": self.region_id,
             },
             auth=False,
+            login=True,
         )
         if not data:
             raise DesmanLockAuthError("Login response does not contain token")

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Desman Lock",
-        "description": "Sign in with your Desman account.",
+        "description": "Sign in with the phone number and password you use in the Desman app (not an SMS verification code).",
         "data": {
           "phone": "Phone number",
           "password": "Password",
@@ -20,8 +20,8 @@
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect or sign in",
-      "invalid_auth": "The account credentials are invalid",
+      "cannot_connect": "Unable to reach the Desman cloud (check network, DNS and proxy settings)",
+      "invalid_auth": "Account or password rejected by the Desman cloud (see the log for the exact reason)",
       "no_locks": "No locks were found on this account"
     },
     "abort": {
@@ -40,7 +40,7 @@
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect or sign in"
+      "cannot_connect": "Unable to reach the Desman cloud (check network, DNS and proxy settings)"
     }
   },
   "entity": {

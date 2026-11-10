@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "德施曼智能锁",
-        "description": "使用德施曼账号登录。",
+        "description": "使用德施曼 App 的手机号和登录密码（不是短信验证码）。",
         "data": {
           "phone": "手机号",
           "password": "密码",
@@ -20,8 +20,8 @@
       }
     },
     "error": {
-      "cannot_connect": "无法连接或登录失败",
-      "invalid_auth": "账号或密码错误",
+      "cannot_connect": "无法连接德施曼云端，请检查网络、DNS 与代理设置",
+      "invalid_auth": "账号或密码错误（云端拒绝登录，具体原因见日志）",
       "no_locks": "该账号下未找到门锁"
     },
     "abort": {
@@ -40,7 +40,7 @@
       }
     },
     "error": {
-      "cannot_connect": "无法连接或登录失败"
+      "cannot_connect": "无法连接德施曼云端，请检查网络、DNS 与代理设置"
     }
   },
   "entity": {
