@@ -31,7 +31,9 @@
 | 新增「解锁状态保持时间」选项 | 默认 30 秒，范围 0–600 秒；任何开锁事件只在这个窗口内视为「已解锁」，超时推定门锁已自动上锁。设为 0 会退回「按最新一条日志判断」的旧逻辑。 |
 | 修正登录失败误报 | 上游把云端登录拒绝（如 `{"status":4,"msg":"密码错误"}`）误判为「无法连接或登录失败」。本分支区分「网络不可达」与「凭证被拒」，后者显示「账号或密码错误」，并在日志中以 warning 输出云端返回的原文与状态码。 |
 | 修正门锁状态卡住 | 上游把「最新一条开锁日志」当作持续状态，用指纹/人脸/App 开锁后会长期显示「已解锁」。v0.3.2 改为按日志时间衰减，并加定时器在窗口到期时主动刷新实体；新增 `state_expires_at` / `state_is_inferred` 属性与更细的 `state_source` 取值便于自查。 |
-| 版本号 | `0.3.2`。 |
+| 修复安防抓拍无法显示（v0.4.0） | App 已把抓拍从阿里 LinkVisual 迁移到腾讯云 IoT Video，上游的阿里接口报 `9564 device no user` 导致破图。改为按告警时间戳本地拼接腾讯云对象 key，由德施曼云端用主账号签名换链，**无需手动抓取/更新会过期的腾讯 AccessToken**；抓拍图顺时针旋转 90° 正立显示；取图失败时显示内置占位图，不再破图。 |
+| 抓拍图自动清理（v0.4.0） | 自动化保存到 `www/cam/desman_<时间戳>.jpg` 的抓拍图超过 30 天自动删除：启动时清理一次，之后每 6 小时一次；按 HA 本地时区判断，只删规范命名的文件。新增 `desmanlock.cleanup_snapshots` 服务可按需手动清理并指定保留天数。 |
+| 版本号 | `0.4.0`。 |
 
 **升级后需要改自动化**：原来调用 `lock.unlock` 的地方改为 `button.press`；原来读取 `lock.xxx` 状态的地方改为读取二元传感器。
 
@@ -61,7 +63,7 @@ state: "on"
 > [!IMPORTANT]
 > 如果之前在 HACS 里添加的是上游 `chliny/ha-desmanlock`，请先到 **HACS → 右上角菜单 → 自定义存储库** 删除该条目，再重新添加 `https://github.com/shinnaluo/ha-desmanlock`（类别选「集成」）。否则 HACS 会继续去上游检查更新，把旧的 `lock` 实体装回来。
 
-本仓库的 `hacs.json` 不再依赖 Release 附件，HACS 直接读取仓库中的 `custom_components/desmanlock` 内容，版本与更新提示均以本仓库为准。仓库自带的 Release 工作流会在推送 `v*` 标签时打包组件并创建 Release，也可在 GitHub 网页手动发布；当前 `v0.3.0` 已发布。
+本仓库的 `hacs.json` 不再依赖 Release 附件，HACS 直接读取仓库中的 `custom_components/desmanlock` 内容，版本与更新提示均以本仓库为准。仓库自带的 Release 工作流会在推送 `v*` 标签时打包组件并创建 Release，也可在 GitHub 网页手动发布；当前 `v0.4.0` 已发布。
 
 > [!NOTE]
 > GitHub 对 Fork 仓库默认可能禁用 Actions。若打标签后没有自动生成 Release，到 **Actions** 页面启用一次即可；HACS 的更新检测本身不依赖该工作流。
@@ -125,7 +127,7 @@ state: "on"
 
 - 提示**「账号或密码错误」**：云端明确拒绝了登录。请先确认德施曼 App 能用「手机号 + 密码」登录（一直用短信验证码登录的账号可能没有设置密码，需先在 App 里设置）；检查有无多余空格、大小写，以及中国大陆账号的区域 ID 是否为 `1`。云端对不存在的手机号、错误密码、错误区域都统一返回「密码错误」，所以日志里只会有这一句。
 - 提示**「无法连接德施曼云端」**：这才是真正的网络问题。检查 HA 容器能否解析并访问 `nyuwa.dsmxp.com`（Docker 版可用 `docker exec <容器名> curl -I https://nyuwa.dsmxp.com/` 测试）、DNS、代理和防火墙。
-- **装完仍是 `0.2.8` / 表单只有 4 个字段**：说明 HACS 还在从上游 `chliny/ha-desmanlock` 下载。上游 `hacs.json` 带 `zip_release`，会拉取它 v0.2.8 Release 的 `desmanlock.zip`。请到 HACS → 右上角菜单 → 自定义存储库删除上游条目，重新添加本仓库并重启 HA；或直接用本仓库 Release 的 `desmanlock.zip` 覆盖 `<config>/custom_components/desmanlock`。判别方法：本分支的 `manifest.json` 有 `documentation` 字段且为 `0.3.2`，上游为空且为 `0.2.8`；本分支表单多一个「解锁状态保持时间」。
+- **装完仍是 `0.2.8` / 表单只有 4 个字段**：说明 HACS 还在从上游 `chliny/ha-desmanlock` 下载。上游 `hacs.json` 带 `zip_release`，会拉取它 v0.2.8 Release 的 `desmanlock.zip`。请到 HACS → 右上角菜单 → 自定义存储库删除上游条目，重新添加本仓库并重启 HA；或直接用本仓库 Release 的 `desmanlock.zip` 覆盖 `<config>/custom_components/desmanlock`。判别方法：本分支的 `manifest.json` 有 `documentation` 字段且为 `0.4.0`，上游为空且为 `0.2.8`；本分支表单多一个「解锁状态保持时间」。
 - 实体暂时不可用时，检查 Home Assistant 是否可以访问 `nyuwa.dsmxp.com`。
 - 如需提交问题，请附上 Home Assistant 版本、集成版本、门锁型号和已脱敏的相关日志。请勿公开账号、密码、动态密码、数字密码、Token 或门锁 ID。
 
