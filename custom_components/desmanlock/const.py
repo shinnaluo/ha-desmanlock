@@ -24,6 +24,9 @@ CONF_UNLOCK_HOLD_SECONDS = "unlock_hold_seconds"
 DEFAULT_UNLOCK_HOLD_SECONDS = 30
 
 BASE_URL = "https://nyuwa.dsmxp.com"
+# The desman cloud signs alarm-snapshot object keys with its own master
+# Tencent key, so no per-user Tencent AccessToken is needed.
+DSM_TENCENT_THUMBNAIL_PATH = "/nyuwa/tencent/describeCloudStorageThumbnail"
 APP_VERSION = "6.14.0"
 APP_VERSION_CODE = "20828"
 USER_AGENT = f"desmanlock/{APP_VERSION}"
